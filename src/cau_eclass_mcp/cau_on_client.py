@@ -34,6 +34,18 @@ class CAUOnClient:
             follow_redirects=True
         )
 
+    def close(self):
+        """Close HTTP/2 client and release resources"""
+        if self.http2_client:
+            self.http2_client.close()
+
+    def __del__(self):
+        """Cleanup on garbage collection"""
+        try:
+            self.close()
+        except Exception:
+            pass
+
     @staticmethod
     def _convert_utc_to_kst(utc_time_str: str) -> str:
         """
@@ -495,6 +507,49 @@ class CAUOnClient:
             print(f"Error fetching file info: {e}")
             return None
 
+    @staticmethod
+    def _validate_save_path(save_path: str) -> str:
+        """
+        Validate and sanitize file save path to prevent path traversal.
+
+        Args:
+            save_path: Requested save path
+
+        Returns:
+            Validated absolute path
+
+        Raises:
+            ValueError: If path is outside allowed directories
+        """
+        import os
+        from pathlib import Path
+
+        # Resolve to absolute path (resolves .., symlinks, etc.)
+        resolved = Path(save_path).resolve()
+
+        # Allowed base directories
+        home = Path.home()
+        allowed_bases = [
+            home / "Downloads",
+            home / "Documents",
+            home / "Desktop",
+            Path(os.environ.get('TEMP', '')),
+            Path(os.environ.get('TMP', '')),
+        ]
+
+        # Check if resolved path is under an allowed directory
+        for base in allowed_bases:
+            try:
+                if base.exists() and resolved.is_relative_to(base.resolve()):
+                    return str(resolved)
+            except (ValueError, OSError):
+                continue
+
+        raise ValueError(
+            f"Save path must be under ~/Downloads, ~/Documents, ~/Desktop, or temp directory. "
+            f"Got: {resolved}"
+        )
+
     def download_file(self, course_id: str, file_id: str, save_path: str) -> bool:
         """
         Download a file from e-class
@@ -502,13 +557,20 @@ class CAUOnClient:
         Args:
             course_id: Course ID
             file_id: File ID
-            save_path: Local path to save the file
+            save_path: Local path to save the file (must be under ~/Downloads, ~/Documents, ~/Desktop, or temp)
 
         Returns:
             True if download successful, False otherwise
 
         Endpoint: GET /courses/{course_id}/files/{file_id}/download
         """
+        # Validate save path to prevent path traversal
+        try:
+            save_path = self._validate_save_path(save_path)
+        except ValueError as e:
+            print(f"Security error: {e}")
+            return False
+
         endpoint = f'{self.base_url}/courses/{course_id}/files/{file_id}/download'
 
         try:

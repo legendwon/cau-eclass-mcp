@@ -30,6 +30,10 @@ class CauAuthenticator:
         self.authenticated = False
         self.last_auth_time = 0
 
+    def _clear_password(self):
+        """Clear password from memory after successful authentication"""
+        self.password = None
+
     def login(self, debug: bool = False) -> bool:
         """
         Perform SSO login to CAU e-class
@@ -167,9 +171,7 @@ class CauAuthenticator:
                             )
                             decrypted_password = decrypted_bytes.decode('utf-8')
 
-                            print(f"  Successfully decrypted password")
-                            print(f"  Decrypted value (first 50 chars): {decrypted_password[:50]}...")
-                            print(f"  Decrypted length: {len(decrypted_password)}")
+                            print(f"  Successfully decrypted password (length: {len(decrypted_password)})")
 
                             # Now POST /login/canvas with decrypted password
                             login_form = soup.find('form', {'id': 'login_form'})
@@ -278,13 +280,14 @@ class CauAuthenticator:
                     # 2. Check for xn_api_token
                     xn_api_token = self.session.cookies.get('xn_api_token')
                     if xn_api_token:
-                        print(f"  Found API token: {xn_api_token[:20]}...")
+                        print("  Found API token (stored in session)")
                     
                     # 3. Visit session activation endpoint if found (common in Canvas)
                     self.session.get('https://eclass3.cau.ac.kr/api/v1/users/self/activity_stream', timeout=10)
 
                     self.authenticated = True
                     self.last_auth_time = time.time()
+                    self._clear_password()
                     return True
 
             # Check for error messages in response
@@ -359,6 +362,7 @@ class CauAuthenticator:
 
                         self.authenticated = True
                         self.last_auth_time = time.time()
+                        self._clear_password()
                         return True
 
             print(f"  Login failed: Unexpected final URL: {response.url}")

@@ -17,70 +17,75 @@ from .web_api import router as web_router
 from .utils.credentials import CredentialManager
 
 
-# Create FastAPI application
-app = FastAPI(
-    title="CAU e-class MCP Server",
-    description="MCP server for CAU e-class integration with SSE transport and Web UI",
-    version="0.1.0"
-)
+def create_app(port: int = 8000) -> FastAPI:
+    """Create FastAPI application with dynamic CORS based on port"""
+    app = FastAPI(
+        title="CAU e-class MCP Server",
+        description="MCP server for CAU e-class integration with SSE transport and Web UI",
+        version="0.1.0"
+    )
 
-# Add CORS middleware for localhost access
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["http://localhost:8000", "http://127.0.0.1:8000"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+    # Dynamic CORS: only allow localhost on the actual port
+    allowed_origins = [
+        f"http://localhost:{port}",
+        f"http://127.0.0.1:{port}",
+    ]
 
-# Mount web API endpoints
-app.include_router(web_router, prefix="/api")
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=allowed_origins,
+        allow_credentials=True,
+        allow_methods=["GET", "POST", "DELETE"],
+        allow_headers=["Content-Type", "Accept"],
+    )
 
+    # Mount web API endpoints
+    app.include_router(web_router, prefix="/api")
 
-# Health check endpoint
-@app.get("/health")
-async def health_check():
-    """Health check endpoint"""
-    return {"status": "ok", "service": "cau-eclass-mcp"}
+    # Health check endpoint
+    @app.get("/health")
+    async def health_check():
+        """Health check endpoint"""
+        return {"status": "ok", "service": "cau-eclass-mcp"}
 
+    # Serve web UI at root
+    @app.get("/")
+    async def serve_ui():
+        """Serve the web UI HTML page"""
+        static_dir = Path(__file__).parent / "static"
+        index_path = static_dir / "index.html"
 
-# Serve web UI at root
-@app.get("/")
-async def serve_ui():
-    """Serve the web UI HTML page"""
+        if not index_path.exists():
+            return {
+                "error": "Web UI not found",
+                "message": "index.html is missing from static directory"
+            }
+
+        return FileResponse(index_path)
+
+    # Mount static files for CSS/JS if needed
     static_dir = Path(__file__).parent / "static"
-    index_path = static_dir / "index.html"
+    if static_dir.exists():
+        app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
-    if not index_path.exists():
+    # MCP SSE endpoint
+    @app.get("/mcp/sse")
+    async def handle_sse_info():
+        """MCP SSE endpoint info"""
         return {
-            "error": "Web UI not found",
-            "message": "index.html is missing from static directory"
+            "message": "MCP SSE endpoint",
+            "note": "Full SSE transport implementation coming soon. Use stdio mode for now.",
+            "stdio_mode": "python -m cau_eclass_mcp"
         }
 
-    return FileResponse(index_path)
-
-
-# Mount static files for CSS/JS if needed
-static_dir = Path(__file__).parent / "static"
-if static_dir.exists():
-    app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
-
-
-# MCP SSE endpoint
-# Note: Full MCP SSE implementation requires more complex integration
-# For now, this is a placeholder. MCP clients can use stdio mode.
-@app.get("/mcp/sse")
-async def handle_sse_info():
-    """MCP SSE endpoint info"""
-    return {
-        "message": "MCP SSE endpoint",
-        "note": "Full SSE transport implementation coming soon. Use stdio mode for now.",
-        "stdio_mode": "python -m cau_eclass_mcp"
-    }
+    return app
 
 
 async def main(host: str = "127.0.0.1", port: int = 8000):
     """Main entry point for SSE transport with web UI"""
+
+    # Security warning for non-localhost binding
+    is_exposed = host != "127.0.0.1" and host != "localhost"
 
     # Check credentials and display startup message
     cred_manager = CredentialManager()
@@ -91,6 +96,13 @@ async def main(host: str = "127.0.0.1", port: int = 8000):
     print("CAU e-class MCP Server - SSE Mode")
     print("=" * 70)
     print(f"Server starting on http://{host}:{port}")
+
+    if is_exposed:
+        print("")
+        print("⚠️  WARNING: Server is exposed to the network!")
+        print("   Credential endpoints are restricted to localhost,")
+        print("   but consider using 127.0.0.1 for maximum security.")
+        print("")
 
     if not credentials_configured:
         print("\n[!] No credentials configured!")
@@ -105,6 +117,9 @@ async def main(host: str = "127.0.0.1", port: int = 8000):
     print(f"\nPress Ctrl+C to stop the server")
     print("=" * 70)
     print("")
+
+    # Create app with correct port for CORS
+    app = create_app(port=port)
 
     # Start uvicorn server
     config = uvicorn.Config(

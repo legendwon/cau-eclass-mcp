@@ -1,8 +1,9 @@
 """
-REST API for credential management and server status
+REST API for credential management and server status.
+Includes localhost-only security check for credential endpoints.
 """
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 from .utils.credentials import CredentialManager
 import time
@@ -12,6 +13,20 @@ cred_manager = CredentialManager()
 
 # Track server start time for uptime calculation
 _server_start_time = time.time()
+
+
+def _check_localhost(request: Request):
+    """
+    Verify request comes from localhost.
+    Blocks credential operations from non-localhost clients.
+    """
+    client_host = request.client.host if request.client else None
+    allowed_hosts = {"127.0.0.1", "::1", "localhost"}
+    if client_host not in allowed_hosts:
+        raise HTTPException(
+            status_code=403,
+            detail="Credential management is only allowed from localhost"
+        )
 
 
 class CredentialsInput(BaseModel):
@@ -39,8 +54,9 @@ class ServerStatusResponse(BaseModel):
 
 
 @router.post("/credentials", response_model=MessageResponse)
-async def save_credentials(creds: CredentialsInput):
-    """Save credentials to OS keyring"""
+async def save_credentials(creds: CredentialsInput, request: Request):
+    """Save credentials to OS keyring (localhost only)"""
+    _check_localhost(request)
     try:
         success = cred_manager.save_credentials(creds.username, creds.password)
         if success:
@@ -53,6 +69,8 @@ async def save_credentials(creds: CredentialsInput):
                 status_code=500,
                 detail="Failed to save credentials to keyring. Check server logs for details."
             )
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -65,8 +83,9 @@ async def get_credentials_status():
 
 
 @router.delete("/credentials", response_model=MessageResponse)
-async def delete_credentials():
-    """Delete stored credentials from keyring"""
+async def delete_credentials(request: Request):
+    """Delete stored credentials from keyring (localhost only)"""
+    _check_localhost(request)
     try:
         success = cred_manager.delete_credentials()
         if success:
@@ -79,6 +98,8 @@ async def delete_credentials():
                 status="warning",
                 message="No credentials found to delete"
             )
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
