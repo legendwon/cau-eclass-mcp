@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CAU e-class MCP Server</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 8px;
+        }
+        .status-online { background-color: #10b981; }
+        .status-offline { background-color: #ef4444; }
+        .status-warning { background-color: #f59e0b; }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <div class="container mx-auto px-4 py-8 max-w-4xl">
+        <!-- Header -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h1 class="text-3xl font-bold text-gray-800">CAU e-class MCP Server</h1>
+                    <p class="text-gray-600 mt-1">Model Context Protocol Server for CAU e-class Integration</p>
+                </div>
+                <div class="flex items-center">
+                    <span class="status-indicator status-online" id="connectionIndicator"></span>
+                    <span class="text-sm font-medium text-gray-700" id="connectionStatus">Connected</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Credentials Section -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+            <h2 class="text-2xl font-semibold text-gray-800 mb-4">Credentials Setup</h2>
+
+            <div id="credentialStatus" class="mb-4 p-4 rounded-lg bg-gray-100">
+                <div class="flex items-center">
+                    <span class="status-indicator status-offline" id="authIndicator"></span>
+                    <span class="font-medium text-gray-700" id="authStatusText">Checking credentials...</span>
+                </div>
+            </div>
+
+            <form id="credentialsForm" class="space-y-4">
+                <div>
+                    <label for="username" class="block text-sm font-medium text-gray-700 mb-2">
+                        CAU Student ID
+                    </label>
+                    <input
+                        type="text"
+                        id="username"
+                        name="username"
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="Enter your CAU student ID"
+                        required
+                    />
+                </div>
+
+                <div>
+                    <label for="password" class="block text-sm font-medium text-gray-700 mb-2">
+                        CAU Portal Password
+                    </label>
+                    <input
+                        type="password"
+                        id="password"
+                        name="password"
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="Enter your CAU portal password"
+                        required
+                    />
+                </div>
+
+                <div class="flex gap-3">
+                    <button
+                        type="submit"
+                        class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition duration-200"
+                    >
+                        Save Credentials
+                    </button>
+                    <button
+                        type="button"
+                        id="deleteBtn"
+                        class="bg-red-600 hover:bg-red-700 text-white font-medium py-2 px-4 rounded-lg transition duration-200"
+                    >
+                        Delete
+                    </button>
+                </div>
+            </form>
+
+            <div id="messageBox" class="mt-4 hidden"></div>
+        </div>
+
+        <!-- Server Status Dashboard -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+            <h2 class="text-2xl font-semibold text-gray-800 mb-4">Server Status</h2>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="p-4 bg-green-50 rounded-lg border border-green-200">
+                    <div class="text-sm text-gray-600 mb-1">Server Status</div>
+                    <div class="text-xl font-semibold text-green-700">Running</div>
+                </div>
+
+                <div class="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                    <div class="text-sm text-gray-600 mb-1">Authentication</div>
+                    <div class="text-xl font-semibold text-blue-700" id="dashboardAuthStatus">
+                        Not Configured
+                    </div>
+                </div>
+
+                <div class="p-4 bg-purple-50 rounded-lg border border-purple-200">
+                    <div class="text-sm text-gray-600 mb-1">Uptime</div>
+                    <div class="text-xl font-semibold text-purple-700" id="uptimeDisplay">0m</div>
+                </div>
+            </div>
+
+            <div class="mt-4 text-sm text-gray-600">
+                <div class="flex justify-between py-2 border-b border-gray-200">
+                    <span>MCP Endpoint:</span>
+                    <span class="font-mono text-gray-800">/mcp/sse</span>
+                </div>
+                <div class="flex justify-between py-2">
+                    <span>Last Updated:</span>
+                    <span class="font-mono text-gray-800" id="lastUpdate">Never</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Server Control -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+            <h2 class="text-2xl font-semibold text-gray-800 mb-4">Server Control</h2>
+
+            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div class="flex items-start">
+                    <svg class="w-6 h-6 text-blue-600 mr-3 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+                    </svg>
+                    <div>
+                        <h3 class="font-semibold text-blue-900 mb-1">Server is running</h3>
+                        <p class="text-blue-800 text-sm">
+                            To stop the server, press <kbd class="px-2 py-1 bg-white rounded border border-blue-300 text-xs font-mono">Ctrl+C</kbd>
+                            in the terminal where the server is running.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Documentation Links -->
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <h2 class="text-2xl font-semibold text-gray-800 mb-4">Resources</h2>
+
+            <div class="space-y-2">
+                <a href="/docs" class="block p-3 bg-gray-50 hover:bg-gray-100 rounded-lg transition duration-200">
+                    <div class="font-medium text-gray-800">API Documentation</div>
+                    <div class="text-sm text-gray-600">Interactive API docs (Swagger UI)</div>
+                </a>
+                <a href="https://github.com/won33/cau-eclass-mcp" class="block p-3 bg-gray-50 hover:bg-gray-100 rounded-lg transition duration-200" target="_blank">
+                    <div class="font-medium text-gray-800">GitHub Repository</div>
+                    <div class="text-sm text-gray-600">View source code and documentation</div>
+                </a>
+                <a href="https://modelcontextprotocol.io" class="block p-3 bg-gray-50 hover:bg-gray-100 rounded-lg transition duration-200" target="_blank">
+                    <div class="font-medium text-gray-800">Model Context Protocol</div>
+                    <div class="text-sm text-gray-600">Learn more about MCP</div>
+                </a>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="text-center text-gray-600 text-sm mt-8">
+            <p>CAU e-class MCP Server v0.1.0</p>
+            <p class="mt-1">Credentials are stored securely in your system's keyring</p>
+        </div>
+    </div>
+
+    <script>
+        // UI State
+        let statusCheckInterval = null;
+
+        // Format uptime in human-readable format
+        function formatUptime(seconds) {
+            if (seconds < 60) return `${seconds}s`;
+            const minutes = Math.floor(seconds / 60);
+            if (minutes < 60) return `${minutes}m`;
+            const hours = Math.floor(minutes / 60);
+            const remainingMinutes = minutes % 60;
+            return `${hours}h ${remainingMinutes}m`;
+        }
+
+        // Show message (success or error)
+        function showMessage(message, isError = false) {
+            const messageBox = document.getElementById('messageBox');
+            messageBox.className = `mt-4 p-4 rounded-lg ${isError ? 'bg-red-50 border border-red-200 text-red-800' : 'bg-green-50 border border-green-200 text-green-800'}`;
+            messageBox.textContent = message;
+            messageBox.classList.remove('hidden');
+
+            setTimeout(() => {
+                messageBox.classList.add('hidden');
+            }, 5000);
+        }
+
+        // Update credential status display
+        function updateCredentialStatus(isConfigured) {
+            const authIndicator = document.getElementById('authIndicator');
+            const authStatusText = document.getElementById('authStatusText');
+            const dashboardAuthStatus = document.getElementById('dashboardAuthStatus');
+
+            if (isConfigured) {
+                authIndicator.className = 'status-indicator status-online';
+                authStatusText.textContent = 'Credentials configured';
+                dashboardAuthStatus.textContent = 'Configured';
+            } else {
+                authIndicator.className = 'status-indicator status-warning';
+                authStatusText.textContent = 'No credentials configured';
+                dashboardAuthStatus.textContent = 'Not Configured';
+            }
+        }
+
+        // Check server status
+        async function checkStatus() {
+            try {
+                const response = await fetch('/api/status');
+                if (!response.ok) throw new Error('Status check failed');
+
+                const data = await response.json();
+
+                // Update uptime
+                document.getElementById('uptimeDisplay').textContent = formatUptime(data.uptime_seconds);
+
+                // Update authentication status
+                updateCredentialStatus(data.authenticated);
+
+                // Update last update time
+                const now = new Date();
+                document.getElementById('lastUpdate').textContent = now.toLocaleTimeString();
+
+                // Update connection indicator
+                document.getElementById('connectionIndicator').className = 'status-indicator status-online';
+                document.getElementById('connectionStatus').textContent = 'Connected';
+            } catch (error) {
+                console.error('Status check failed:', error);
+                document.getElementById('connectionIndicator').className = 'status-indicator status-offline';
+                document.getElementById('connectionStatus').textContent = 'Disconnected';
+            }
+        }
+
+        // Save credentials
+        document.getElementById('credentialsForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+
+            try {
+                const response = await fetch('/api/credentials', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ username, password })
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'Failed to save credentials');
+                }
+
+                const data = await response.json();
+                showMessage(data.message, false);
+
+                // Clear password field
+                document.getElementById('password').value = '';
+
+                // Refresh status
+                await checkStatus();
+            } catch (error) {
+                showMessage(error.message, true);
+            }
+        });
+
+        // Delete credentials
+        document.getElementById('deleteBtn').addEventListener('click', async () => {
+            if (!confirm('Are you sure you want to delete your saved credentials?')) {
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/credentials', {
+                    method: 'DELETE'
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'Failed to delete credentials');
+                }
+
+                const data = await response.json();
+                showMessage(data.message, data.status === 'warning');
+
+                // Clear form fields
+                document.getElementById('username').value = '';
+                document.getElementById('password').value = '';
+
+                // Refresh status
+                await checkStatus();
+            } catch (error) {
+                showMessage(error.message, true);
+            }
+        });
+
+        // Initialize: check status immediately and then every 5 seconds
+        checkStatus();
+        statusCheckInterval = setInterval(checkStatus, 5000);
+    </script>
+</body>
+</html>

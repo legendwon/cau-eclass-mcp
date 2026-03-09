@@ -13,6 +13,8 @@ MCP (Model Context Protocol) server for integrating CAU e-class platform with Cl
 - **Announcements**: Read course announcements without opening a browser
 - **Assignments**: Check assignments and submission status with due dates
 - **Lecture Modules**: View weekly lecture modules with attendance tracking
+- **Dual Transport**: stdio mode (for Claude Code) + SSE mode (web UI)
+- **Web UI**: Browser-based credential setup and server monitoring
 - **Cross-Platform**: Works on Windows, macOS, and Linux
 - **Secure Credentials**: Uses OS keyring for secure credential storage
 
@@ -29,14 +31,14 @@ MCP (Model Context Protocol) server for integrating CAU e-class platform with Cl
 Install directly from GitHub:
 
 ```bash
-pip install git+https://github.com/won33/cau-eclass-mcp.git
+pip install git+https://github.com/legendwon/-cau-eclass-mcp.git
 ```
 
 Or clone and install for development:
 
 ```bash
-git clone https://github.com/won33/cau-eclass-mcp.git
-cd cau-eclass-mcp
+git clone https://github.com/legendwon/-cau-eclass-mcp.git
+cd -cau-eclass-mcp
 pip install -e .[dev]
 ```
 
@@ -102,6 +104,63 @@ Add the MCP server to your Claude Code configuration:
 ```
 
 Restart Claude Code after configuration.
+
+## SSE Server Mode (Web UI)
+
+For users who prefer a graphical interface or want to set up credentials without command line tools, you can run the server in SSE (Server-Sent Events) mode with a web UI.
+
+### Starting the SSE Server
+
+```bash
+# Default: runs on http://127.0.0.1:8000
+python -m cau_eclass_mcp --sse
+
+# Custom port
+python -m cau_eclass_mcp --sse --port 9000
+
+# Allow external connections (not recommended for security)
+python -m cau_eclass_mcp --sse --host 0.0.0.0 --port 8000
+```
+
+### Web UI Features
+
+Once the server is running, open http://localhost:8000 in your browser to access:
+
+1. **Credential Setup**
+   - Save CAU credentials to OS keyring via web form
+   - Check credential configuration status
+   - Delete stored credentials
+
+2. **Server Status Dashboard**
+   - Real-time server status monitoring
+   - Authentication status
+   - Server uptime tracking
+   - Automatic status updates every 5 seconds
+
+3. **API Documentation**
+   - Interactive Swagger UI at http://localhost:8000/docs
+   - Test API endpoints directly in browser
+
+### Available Endpoints
+
+When running in SSE mode:
+
+- `http://localhost:8000/` - Web UI
+- `http://localhost:8000/api/credentials` - Credential management
+- `http://localhost:8000/api/status` - Server status
+- `http://localhost:8000/health` - Health check
+- `http://localhost:8000/docs` - API documentation
+
+### Security Notes
+
+- Server binds to `127.0.0.1` (localhost) by default
+- No network exposure unless `--host 0.0.0.0` is used
+- Credentials are stored in OS keyring, never exposed via API
+- CORS restricted to localhost origins only
+
+### Stopping the Server
+
+Press `Ctrl+C` in the terminal where the server is running.
 
 ## Usage with Claude Code
 
@@ -184,12 +243,35 @@ View weekly lecture modules with attendance tracking.
 
 **Returns**: Weekly modules with completion status and lecture items
 
+## Usage Modes
+
+### stdio Mode (Default)
+
+For Claude Code integration:
+
+```bash
+python -m cau_eclass_mcp
+```
+
+This runs the server in stdio mode, communicating via standard input/output. Credentials must be configured via command line or environment variables before use.
+
+### SSE Mode (Web UI)
+
+For graphical credential setup and monitoring:
+
+```bash
+python -m cau_eclass_mcp --sse
+```
+
+Open http://localhost:8000 in your browser to configure credentials and monitor server status.
+
 ## Troubleshooting
 
 ### "Failed to authenticate with CAU SSO"
 
 - Verify your student ID and password are correct
-- Try deleting stored credentials and re-entering:
+- **Web UI method**: Navigate to http://localhost:8000 (if using SSE mode) and update credentials
+- **Command line method**: Delete and re-enter credentials:
   ```bash
   python -c "from cau_eclass_mcp.utils.credentials import CredentialManager; m = CredentialManager(); m.delete_credentials()"
   ```
@@ -206,10 +288,23 @@ export CAU_PASSWORD="your_password"
 
 1. Test the server manually:
    ```bash
+   # stdio mode
    python -m cau_eclass_mcp
+
+   # SSE mode (should show startup message)
+   python -m cau_eclass_mcp --sse
    ```
 2. Check Claude Code logs for errors
 3. Verify `.mcp.json` or `claude.json` configuration
+
+### Web UI not loading
+
+If running `--sse` mode but web UI doesn't load:
+
+1. Check if the server started successfully (should show "Server starting on...")
+2. Verify the port is not in use: `netstat -an | findstr :8000` (Windows) or `lsof -i :8000` (macOS/Linux)
+3. Try a different port: `python -m cau_eclass_mcp --sse --port 9000`
+4. Check browser console for errors
 
 ### Session expired errors
 
@@ -270,4 +365,4 @@ The tool accesses e-class data through the same APIs used by the official web in
 
 ---
 
-**Questions or Issues?** Open an issue on [GitHub](https://github.com/won33/cau-eclass-mcp/issues)
+**Questions or Issues?** Open an issue on [GitHub](https://github.com/legendwon/-cau-eclass-mcp/issues)

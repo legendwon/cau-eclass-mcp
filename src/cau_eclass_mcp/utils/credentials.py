@@ -128,6 +128,32 @@ class CredentialManager:
 
         return creds
 
+    def check_credentials_exist(self) -> bool:
+        """
+        Check if credentials are configured (keyring or environment variables)
+
+        Returns:
+            True if credentials exist, False otherwise
+        """
+        # Try keyring first
+        if HAS_KEYRING:
+            try:
+                username = keyring.get_password(self.SERVICE_NAME, "username")
+                if username:
+                    password = keyring.get_password(self.SERVICE_NAME, username)
+                    if password:
+                        return True
+            except KeyringError:
+                pass
+
+        # Check environment variables
+        username = os.environ.get("CAU_USERNAME")
+        password = os.environ.get("CAU_PASSWORD")
+        if username and password:
+            return True
+
+        return False
+
     def delete_credentials(self) -> bool:
         """
         Delete stored credentials from keyring
