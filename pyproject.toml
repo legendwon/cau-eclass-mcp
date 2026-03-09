@@ -38,8 +38,8 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/legendwon/-cau-eclass-mcp"
-Repository = "https://github.com/legendwon/-cau-eclass-mcp"
+Homepage = "https://github.com/legendwon/cau-eclass-mcp"
+Repository = "https://github.com/legendwon/cau-eclass-mcp"
 
 [project.scripts]
 cau-eclass-mcp = "cau_eclass_mcp.__main__:main"

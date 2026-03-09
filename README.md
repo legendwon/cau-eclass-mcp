@@ -31,14 +31,14 @@ MCP (Model Context Protocol) server for integrating CAU e-class platform with Cl
 Install directly from GitHub:
 
 ```bash
-pip install git+https://github.com/legendwon/-cau-eclass-mcp.git
+pip install git+https://github.com/legendwon/cau-eclass-mcp.git
 ```
 
 Or clone and install for development:
 
 ```bash
-git clone https://github.com/legendwon/-cau-eclass-mcp.git
-cd -cau-eclass-mcp
+git clone https://github.com/legendwon/cau-eclass-mcp.git
+cd cau-eclass-mcp
 pip install -e .[dev]
 ```
 
@@ -365,4 +365,4 @@ The tool accesses e-class data through the same APIs used by the official web in
 
 ---
 
-**Questions or Issues?** Open an issue on [GitHub](https://github.com/legendwon/-cau-eclass-mcp/issues)
+**Questions or Issues?** Open an issue on [GitHub](https://github.com/legendwon/cau-eclass-mcp/issues)
