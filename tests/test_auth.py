@@ -6,6 +6,7 @@ Requires valid CAU credentials (from keyring, env vars, or interactive prompt).
 """
 
 import pytest
+pytestmark = pytest.mark.live
 from cau_eclass_mcp.auth import CauAuthenticator
 from cau_eclass_mcp.cau_on_client import CAUOnClient
 from cau_eclass_mcp.utils.credentials import get_credentials
@@ -56,9 +57,8 @@ class TestAuthentication:
         authenticator.login(debug=False)
         client = CAUOnClient(authenticator.session)
 
-        dashboard = client.get_dashboard()
-        assert 'courses' in dashboard, "Dashboard should have 'courses' key"
-        assert isinstance(dashboard['courses'], list), "Courses should be a list"
+        courses = client.get_courses()
+        assert isinstance(courses, list), "Courses should be a list"
 
 
 class TestCredentialManagement:

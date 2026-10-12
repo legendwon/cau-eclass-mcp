@@ -11,6 +11,9 @@ from datetime import datetime, timezone, timedelta
 import json
 from pathlib import Path
 import requests
+import logging
+
+logger = logging.getLogger(__name__)
 import httpx
 
 
@@ -60,7 +63,7 @@ class CAUOnClient:
                     with open(loc, 'r', encoding='utf-8') as f:
                         return json.load(f)
                 except Exception as e:
-                    print(f"Warning: Failed to load config from {loc}: {e}")
+                    logger.debug("CAU API progress")
         
         return {}
 
@@ -177,7 +180,7 @@ class CAUOnClient:
         self._ensure_session_initialized()
 
         # Get FRESH cookies from requests.Session (includes cookies added after login)
-        cookies_dict = {cookie.name: cookie.value for cookie in self.session.cookies}
+        self.http2_client.cookies.update(self.session.cookies)
 
         # Headers matching successful browser request (from 성공.md)
         # This is EXACTLY what Chrome sends when accessing API URL directly
@@ -208,7 +211,9 @@ class CAUOnClient:
         headers.update(custom_headers)
 
         # Use httpx for HTTP/2 support with FRESH cookies
-        return self.http2_client.request(method, url, headers=headers, cookies=cookies_dict, **kwargs)
+        response = self.http2_client.request(method, url, headers=headers, **kwargs)
+        self.session.cookies.update(self.http2_client.cookies.jar)
+        return response
 
     def _parse_json_response(self, response):
         """
@@ -264,21 +269,21 @@ class CAUOnClient:
             elif isinstance(data, dict) and 'data' in data:
                 return data['data']
             else:
-                print(f"Unexpected response structure: {list(data.keys())}")
+                logger.debug("CAU API progress")
                 return []
 
         except requests.exceptions.HTTPError as e:
             if e.response.status_code == 404:
-                print(f"Endpoint not found: {endpoint}")
+                logger.debug("CAU API progress")
                 raise RuntimeError("API endpoint not found. Check if you're logged in.")
             else:
-                print(f"HTTP error fetching courses: {e}")
+                logger.debug("CAU API progress")
                 raise
         except requests.exceptions.RequestException as e:
-            print(f"Network error fetching courses: {e}")
+            logger.debug("CAU API progress")
             raise
         except ValueError as e:
-            print(f"JSON decode error: {e}")
+            logger.debug("CAU API progress")
             raise
 
     def get_course_announcements(self, course_id: str, limit: int = 20) -> List[Dict]:
@@ -323,18 +328,18 @@ class CAUOnClient:
             elif isinstance(data, dict) and 'items' in data:
                 return data['items'][:limit]
             else:
-                print(f"Unexpected response structure: {list(data.keys())}")
+                logger.debug("CAU API progress")
                 return []
 
         except requests.exceptions.HTTPError as e:
             if e.response.status_code == 404:
-                print(f"Announcements endpoint not found for course {course_id}")
+                logger.debug("CAU API progress")
                 return []
             else:
-                print(f"HTTP error fetching announcements: {e}")
+                logger.debug("CAU API progress")
                 raise
         except Exception as e:
-            print(f"Error fetching announcements: {e}")
+            logger.debug("CAU API progress")
             raise
 
     def get_course_assignments(self, course_id: str) -> List[Dict]:
@@ -368,18 +373,18 @@ class CAUOnClient:
             elif isinstance(data, dict) and 'items' in data:
                 return data['items']
             else:
-                print(f"Unexpected response structure: {list(data.keys())}")
+                logger.debug("CAU API progress")
                 return []
 
         except requests.exceptions.HTTPError as e:
             if e.response.status_code == 404:
-                print(f"Assignments endpoint not found for course {course_id}")
+                logger.debug("CAU API progress")
                 return []
             else:
-                print(f"HTTP error fetching assignments: {e}")
+                logger.debug("CAU API progress")
                 raise
         except Exception as e:
-            print(f"Error fetching assignments: {e}")
+            logger.debug("CAU API progress")
             raise
 
     def get_modules(self, course_id: str) -> List[Dict]:
@@ -411,11 +416,11 @@ class CAUOnClient:
             elif isinstance(data, dict) and 'modules' in data:
                 return data['modules']
             else:
-                print(f"Unexpected response structure: {list(data.keys()) if isinstance(data, dict) else type(data)}")
+                logger.debug("CAU API progress")
                 return []
 
         except Exception as e:
-            print(f"Error fetching modules: {e}")
+            logger.debug("CAU API progress")
             raise
 
     def get_learningx_modules(self, course_id: str) -> List[Dict]:
@@ -433,8 +438,8 @@ class CAUOnClient:
             response.raise_for_status()
             return self._parse_json_response(response)
         except Exception as e:
-            print(f"Error fetching LearningX modules: {e}")
-            return []
+            logger.debug("CAU API progress")
+            raise
 
     def get_ocs_content_info(self, content_id: str) -> Optional[Dict]:
         """
@@ -478,8 +483,8 @@ class CAUOnClient:
                 
             return info
         except Exception as e:
-            print(f"Error fetching OCS content info: {e}")
-            return None
+            logger.debug("CAU API progress")
+            raise
 
     def get_attendance_item(self, course_id: str, item_id: str) -> Optional[Dict]:
         """
@@ -530,8 +535,8 @@ class CAUOnClient:
             return data
 
         except Exception as e:
-            print(f"Error fetching attendance item {item_id}: {e}")
-            return None
+            logger.debug("CAU API progress")
+            raise
 
     def get_course_files(self, course_id: str) -> List[Dict]:
         """
@@ -566,7 +571,7 @@ class CAUOnClient:
                 return []
 
         except Exception as e:
-            print(f"Error fetching course files: {e}")
+            logger.debug("CAU API progress")
             raise
 
     def find_course_by_name(self, course_name: str) -> Optional[str]:
@@ -622,8 +627,8 @@ class CAUOnClient:
             return data
 
         except Exception as e:
-            print(f"Error fetching file info: {e}")
-            return None
+            logger.debug("CAU API progress")
+            raise
 
     def _get_auto_save_path(self, course_id: str, filename: str) -> str:
         """
@@ -738,7 +743,7 @@ class CAUOnClient:
         try:
             save_path = self._validate_save_path(save_path)
         except ValueError as e:
-            print(f"Security error: {e}")
+            logger.debug("CAU API progress")
             return False
 
         endpoint = f'{self.base_url}/courses/{course_id}/files/{file_id}/download'
@@ -759,7 +764,7 @@ class CAUOnClient:
             return True
 
         except Exception as e:
-            print(f"Error downloading file: {e}")
+            logger.debug("CAU API progress")
             return False
 
     @staticmethod
@@ -818,7 +823,7 @@ class CAUOnClient:
             parser.feed(html_message)
             attachments = parser.files
         except Exception as e:
-            print(f"Error parsing HTML for attachments: {e}")
+            logger.debug("CAU API progress")
 
         return attachments
 
@@ -830,8 +835,8 @@ class CAUOnClient:
             response.raise_for_status()
             return self._parse_json_response(response)
         except Exception as e:
-            print(f"Error fetching todo items: {e}")
-            return []
+            logger.debug("CAU API progress")
+            raise
 
     def get_conversations(self, limit: int = 10) -> List[Dict]:
         """Fetch personal messages/conversations"""
@@ -842,8 +847,8 @@ class CAUOnClient:
             response.raise_for_status()
             return self._parse_json_response(response)
         except Exception as e:
-            print(f"Error fetching conversations: {e}")
-            return []
+            logger.debug("CAU API progress")
+            raise
 
     def get_activity_stream(self) -> List[Dict]:
         """Fetch recent activity stream across all courses"""
@@ -853,5 +858,5 @@ class CAUOnClient:
             response.raise_for_status()
             return self._parse_json_response(response)
         except Exception as e:
-            print(f"Error fetching activity stream: {e}")
-            return []
+            logger.debug("CAU API progress")
+            raise

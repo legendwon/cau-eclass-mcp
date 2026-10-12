@@ -1,0 +1,11 @@
+.git
+.env*
+config.json
+.credentials.json
+credentials.json
+venv
+dist
+downloads
+tests
+__pycache__
+*.session

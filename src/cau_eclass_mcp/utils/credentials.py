@@ -114,7 +114,7 @@ class CredentialManager:
 
         return {"username": username, "password": password}
 
-    def get_credentials(self) -> Dict[str, str]:
+    def get_credentials(self, allow_prompt: bool = False) -> Dict[str, str]:
         """
         Get credentials (load from keyring/env or prompt if not found)
 
@@ -124,6 +124,8 @@ class CredentialManager:
         creds = self.load_credentials()
 
         if not creds:
+            if not allow_prompt:
+                raise RuntimeError("CAU credentials are not configured. Run cau-eclass-mcp --setup locally or configure server secrets.")
             creds = self.prompt_for_credentials()
 
         return creds
@@ -181,7 +183,7 @@ class CredentialManager:
 
 
 # Convenience function for easy import
-def get_credentials() -> Dict[str, str]:
+def get_credentials(allow_prompt: bool = False) -> Dict[str, str]:
     """
     Get CAU portal credentials (load or prompt)
 
@@ -189,7 +191,7 @@ def get_credentials() -> Dict[str, str]:
         dict with 'username' and 'password' keys
     """
     manager = CredentialManager()
-    return manager.get_credentials()
+    return manager.get_credentials(allow_prompt=allow_prompt)
 
 
 # Migration helper for users with old DPAPI credentials
