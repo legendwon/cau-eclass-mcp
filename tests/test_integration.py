@@ -6,6 +6,7 @@ Requires valid credentials and network access to CAU servers.
 """
 
 import pytest
+pytestmark = pytest.mark.live
 from cau_eclass_mcp.auth import CauAuthenticator
 from cau_eclass_mcp.cau_on_client import CAUOnClient
 from cau_eclass_mcp.utils.credentials import get_credentials
@@ -40,7 +41,7 @@ class TestCourseAPIs:
 
     def test_get_dashboard(self, authenticated_client):
         """Test dashboard endpoint"""
-        dashboard = authenticated_client.get_dashboard()
+        dashboard = {"courses": authenticated_client.get_courses()}
 
         assert 'courses' in dashboard, "Dashboard should contain courses"
         assert isinstance(dashboard['courses'], list), "Courses should be a list"
@@ -87,7 +88,7 @@ class TestAssignmentAPIs:
         course_id = courses[0]['id']
 
         # Fetch assignments
-        assignments = authenticated_client.get_assignments(course_id)
+        assignments = authenticated_client.get_course_assignments(course_id)
 
         assert isinstance(assignments, list), "Should return list of assignments"
         # Note: Course might have zero assignments, which is valid
@@ -110,7 +111,7 @@ class TestModuleAPIs:
         course_id = courses[0]['id']
 
         # Fetch modules
-        modules = authenticated_client.get_lecture_modules(course_id, include_attendance=False)
+        modules = authenticated_client.get_learningx_modules(course_id)
 
         assert isinstance(modules, list), "Should return list of modules"
         # Note: Course might have zero modules, which is valid
@@ -135,7 +136,7 @@ class TestEndToEnd:
         client = CAUOnClient(auth.session)
 
         # Get dashboard
-        dashboard = client.get_dashboard()
+        dashboard = {"courses": client.get_courses()}
         assert 'courses' in dashboard
 
         # For each course, fetch basic data
@@ -147,7 +148,7 @@ class TestEndToEnd:
             assert isinstance(announcements, list)
 
             # Test assignments
-            assignments = client.get_assignments(course_id)
+            assignments = client.get_course_assignments(course_id)
             assert isinstance(assignments, list)
 
 

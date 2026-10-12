@@ -7,6 +7,9 @@ import re
 import time
 from typing import Optional, Dict
 import requests
+import logging
+
+logger = logging.getLogger(__name__)
 from bs4 import BeautifulSoup
 
 
@@ -44,7 +47,7 @@ class CauAuthenticator:
         """
         try:
             # Step 1: Get the e-class login page to obtain CSRF cookie
-            print("Step 1: Getting e-class login page...")
+            logger.debug("CAU authentication progress")
 
             login_page_url = "https://eclass3.cau.ac.kr/login.do"
             response = self.session.get(login_page_url, timeout=10)
@@ -54,26 +57,26 @@ class CauAuthenticator:
                 os.makedirs("tests/fixtures/sample_pages", exist_ok=True)
                 with open("tests/fixtures/sample_pages/step1_eclass_login.html", 'w', encoding='utf-8') as f:
                     f.write(response.text)
-                print(f"  Saved login page HTML (URL: {response.url})")
+                logger.debug("CAU authentication progress")
 
             # Step 2: Extract CSRF token from cookies
-            print("Step 2: Extracting CSRF token...")
+            logger.debug("CAU authentication progress")
 
             csrf_token = self.session.cookies.get('xn_sso_csrf_token_for_this_login', '')
             if not csrf_token:
                 # Try to find it in the HTML or generate it
-                print("  Warning: CSRF token not found in cookies, trying to extract from HTML...")
+                logger.debug("CAU authentication progress")
                 soup = BeautifulSoup(response.text, 'lxml')
                 csrf_input = soup.find('input', {'id': 'login_form1_csrf_token'})
                 if csrf_input and csrf_input.get('value'):
                     csrf_token = csrf_input.get('value')
                 else:
-                    print("  Warning: CSRF token not found, proceeding anyway...")
+                    logger.debug("CAU authentication progress")
 
-            print(f"  CSRF token: {csrf_token[:20] if csrf_token else 'None'}...")
+            logger.debug("CAU authentication progress")
 
             # Step 3: Prepare login form data
-            print("Step 3: Preparing login credentials...")
+            logger.debug("CAU authentication progress")
 
             # The form action from the HTML
             login_action_url = "https://canvas.cau.ac.kr/xn-sso/gw-cb.php"
@@ -89,10 +92,10 @@ class CauAuthenticator:
                 'login_user_password': self.password
             }
 
-            print(f"  Form fields: {list(form_data.keys())}")
+            logger.debug("CAU authentication progress")
 
             # Step 4: Submit login form
-            print("Step 4: Submitting login credentials...")
+            logger.debug("CAU authentication progress")
 
             response = self.session.post(
                 login_action_url,
@@ -105,16 +108,16 @@ class CauAuthenticator:
             if debug:
                 with open("tests/fixtures/sample_pages/step4_after_login.html", 'w', encoding='utf-8') as f:
                     f.write(response.text)
-                print(f"  Saved post-login HTML (URL: {response.url})")
+                logger.debug("CAU authentication progress")
 
             # Step 5: Verify authentication
-            print(f"Step 5: Verifying authentication (final URL: {response.url})...")
+            logger.debug("CAU authentication progress")
 
             # Check if we're back at e-class
             if 'eclass3.cau.ac.kr' in response.url:
                 # Process auto-submit form with RSA decryption
                 if 'login_form' in response.text and 'loginCryption' in response.text:
-                    print("  Found auto-submit form with RSA decryption...")
+                    logger.debug("CAU authentication progress")
 
                     soup = BeautifulSoup(response.text, 'lxml')
 
@@ -142,8 +145,8 @@ class CauAuthenticator:
                         # Reconstruct PEM format
                         private_key_pem = f"-----BEGIN RSA PRIVATE KEY-----\n{key_formatted}\n-----END RSA PRIVATE KEY-----"
 
-                        print(f"  Found encrypted data (length: {len(encrypted_data)})")
-                        print(f"  Found RSA private key (formatted)")
+                        logger.debug("CAU authentication progress")
+                        logger.debug("CAU authentication progress")
 
                         # Decrypt using RSA
                         try:
@@ -167,7 +170,7 @@ class CauAuthenticator:
                             )
                             decrypted_password = decrypted_bytes.decode('utf-8')
 
-                            print(f"  Successfully decrypted password (length: {len(decrypted_password)})")
+                            logger.debug("CAU authentication progress")
 
                             # Now POST /login/canvas with decrypted password
                             login_form = soup.find('form', {'id': 'login_form'})
@@ -186,7 +189,7 @@ class CauAuthenticator:
                                         else:
                                             form_data[name] = value
 
-                                print(f"  Submitting to: {action}")
+                                logger.debug("CAU authentication progress")
 
                                 # Add Referer header (required by server)
                                 headers = {
@@ -197,54 +200,54 @@ class CauAuthenticator:
 
                                 response = self.session.post(action, data=form_data, headers=headers, allow_redirects=True, timeout=10)
 
-                                print(f"  POST response: {response.status_code}, Final URL: {response.url}")
+                                logger.debug("CAU authentication progress")
 
                                 if debug:
                                     with open("tests/fixtures/sample_pages/step6_post_login_canvas.html", 'w', encoding='utf-8') as f:
                                         f.write(response.text)
 
                         except ImportError:
-                            print("  [ERROR] cryptography library not installed")
-                            print("  Install with: pip install cryptography")
+                            logger.debug("CAU authentication progress")
+                            logger.debug("CAU authentication progress")
                             return False
                         except Exception as e:
-                            print(f"  [ERROR] RSA decryption failed: {e}")
+                            logger.debug("CAU authentication progress")
                             import traceback
-                            traceback.print_exc()
+                            logger.debug("Authentication failed")
                             return False
 
                 # Check for logout link or user-specific content
                 if 'logout' in response.text.lower() or '로그아웃' in response.text:
-                    print("  Login successful! (found logout link)")
+                    logger.debug("CAU authentication progress")
                     self.authenticated = True
                     self.last_auth_time = time.time()
                     return True
 
                 # Check if we're at the main canvas page
                 if 'canvas.cau.ac.kr' in response.url and '/' == response.url.split('canvas.cau.ac.kr')[-1]:
-                    print("  Login successful! (at canvas home)")
+                    logger.debug("CAU authentication progress")
                     self.authenticated = True
                     self.last_auth_time = time.time()
                     return True
 
                 # CRITICAL: Visit root (/) to get the final API-enabled session
                 # This is the missing step that activates API permissions!
-                print("  Visiting root (/) to finalize session...")
+                logger.debug("CAU authentication progress")
                 root_response = self.session.get('https://eclass3.cau.ac.kr/', timeout=10)
 
                 if debug:
                     with open("tests/fixtures/sample_pages/step8_root_visit.html", 'w', encoding='utf-8') as f:
                         f.write(root_response.text)
-                    print(f"  Saved root (/) response")
+                    logger.debug("CAU authentication progress")
 
                 # Now check dashboard access to verify login
-                print("  Checking dashboard access...")
+                logger.debug("CAU authentication progress")
                 dashboard_test = self.session.get('https://eclass3.cau.ac.kr/learningx/dashboard', timeout=10)
                 if dashboard_test.status_code == 200 and 'login' not in dashboard_test.url.lower():
                     if debug:
                         with open("tests/fixtures/sample_pages/dashboard_test.html", 'w', encoding='utf-8') as f:
                             f.write(dashboard_test.text)
-                    print("  Login successful! (can access dashboard)")
+                    logger.debug("CAU authentication progress")
 
                     # Add client-side cookies that JavaScript would normally set
                     # These are required for API access (discovered via Burp Suite analysis)
@@ -265,10 +268,10 @@ class CauAuthenticator:
                     gid = f"GA1.3.{random.randint(100000000, 999999999)}.{int(time_module.time())}"
                     self.session.cookies.set('_gid', gid, domain='.cau.ac.kr')
 
-                    print("  Added client-side cookies (PCID, RC_COLOR, RC_RESOLUTION, _gid)")
+                    logger.debug("CAU authentication progress")
 
                     # NEW: Critical initialization steps discovered via browser analysis
-                    print("  Performing post-login session initialization...")
+                    logger.debug("CAU authentication progress")
                     
                     # 1. Visit main learningx page
                     self.session.get('https://eclass3.cau.ac.kr/learningx/main', timeout=10)
@@ -276,7 +279,7 @@ class CauAuthenticator:
                     # 2. Check for xn_api_token
                     xn_api_token = self.session.cookies.get('xn_api_token')
                     if xn_api_token:
-                        print("  Found API token (stored in session)")
+                        logger.debug("CAU authentication progress")
                     
                     # 3. Visit session activation endpoint if found (common in Canvas)
                     self.session.get('https://eclass3.cau.ac.kr/api/v1/users/self/activity_stream', timeout=10)
@@ -287,16 +290,16 @@ class CauAuthenticator:
 
             # Check for error messages in response
             if '아이디' in response.text and '비밀번호' in response.text:
-                print("  Login failed: Still at login page")
+                logger.debug("CAU authentication progress")
                 return False
 
             if 'login fail' in response.text.lower() or 'invalid' in response.text.lower():
-                print("  Login failed: Invalid credentials")
+                logger.debug("CAU authentication progress")
                 return False
 
             # If we're at canvas or other SSO intermediate page, try to follow redirects
             if 'canvas.cau.ac.kr' in response.url:
-                print("  At SSO intermediate page, checking for auto-redirect...")
+                logger.debug("CAU authentication progress")
                 soup = BeautifulSoup(response.text, 'lxml')
 
                 # Look for auto-submit forms (common in SSO)
@@ -314,11 +317,11 @@ class CauAuthenticator:
                         if name:
                             form_data[name] = value
 
-                    print(f"  Submitting auto-form to: {action}")
+                    logger.debug("CAU authentication progress")
                     response = self.session.post(action, data=form_data, allow_redirects=True, timeout=10)
 
                     if 'eclass3.cau.ac.kr' in response.url and 'logout' in response.text.lower():
-                        print("  Login successful after auto-redirect!")
+                        logger.debug("CAU authentication progress")
 
                         # Add client-side cookies that JavaScript would normally set
                         # These are required for API access (discovered via Burp Suite analysis)
@@ -339,10 +342,10 @@ class CauAuthenticator:
                         gid = f"GA1.3.{random.randint(100000000, 999999999)}.{int(time_module.time())}"
                         self.session.cookies.set('_gid', gid, domain='.cau.ac.kr')
 
-                        print("  Added client-side cookies (PCID, RC_COLOR, RC_RESOLUTION, _gid)")
+                        logger.debug("CAU authentication progress")
 
                         # NEW: Critical initialization steps discovered via browser analysis
-                        print("  Performing post-login session initialization...")
+                        logger.debug("CAU authentication progress")
                         
                         # 1. Visit main learningx page
                         self.session.get('https://eclass3.cau.ac.kr/learningx/main', timeout=10)
@@ -350,7 +353,7 @@ class CauAuthenticator:
                         # 2. Check for xn_api_token
                         xn_api_token = self.session.cookies.get('xn_api_token')
                         if xn_api_token:
-                            print("  Found API token (stored in session)")
+                            logger.debug("CAU authentication progress")
                         
                         # 3. Visit session activation endpoint if found (common in Canvas)
                         self.session.get('https://eclass3.cau.ac.kr/api/v1/users/self/activity_stream', timeout=10)
@@ -359,18 +362,18 @@ class CauAuthenticator:
                         self.last_auth_time = time.time()
                         return True
 
-            print(f"  Login failed: Unexpected final URL: {response.url}")
+            logger.debug("CAU authentication progress")
             if debug:
-                print(f"  Final URL: {response.url}")
-                print(f"  Response status: {response.status_code}")
+                logger.debug("CAU authentication progress")
+                logger.debug("CAU authentication progress")
 
             return False
 
         except requests.RequestException as e:
-            print(f"Network error during login: {e}")
+            logger.debug("CAU authentication progress")
             return False
         except Exception as e:
-            print(f"Unexpected error during login: {e}")
+            logger.debug("CAU authentication progress")
             return False
 
     def ensure_authenticated(self, max_age_seconds: int = 1800) -> bool:
@@ -389,7 +392,7 @@ class CauAuthenticator:
         # Check if session is too old
         age = time.time() - self.last_auth_time
         if age > max_age_seconds:
-            print(f"Session expired (age: {age:.0f}s), re-authenticating...")
+            logger.debug("CAU authentication progress")
             self.authenticated = False
             return self.login()
 
@@ -407,18 +410,18 @@ class CauAuthenticator:
             Response object or None if authentication failed
         """
         if not self.ensure_authenticated():
-            print("  Authentication check failed in get()")
+            logger.debug("CAU authentication progress")
             return None
 
         try:
             response = self.session.get(url, timeout=10, **kwargs)
-            print(f"  GET {url} → {response.status_code}")
+            logger.debug("CAU authentication progress")
             return response
         except requests.RequestException as e:
-            print(f"  Request error: {e}")
+            logger.debug("CAU authentication progress")
             return None
         except Exception as e:
-            print(f"  Unexpected error in get(): {e}")
+            logger.debug("CAU authentication progress")
             return None
 
     def get_text(self, url: str, **kwargs) -> Optional[str]:

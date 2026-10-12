@@ -5,6 +5,10 @@
 
 **브라우저 없이 Claude에서 바로 중앙대 e-class를 확인하세요!**
 
+### ChatGPT 플러그인 (0.2.0)
+
+ChatGPT 연결을 위한 OAuth 보호 Streamable HTTP `/mcp`, 플러그인 패키지, 한국어 조회 스킬을 제공합니다. 설정과 설치 방법은 [ChatGPT 플러그인 연결](docs/chatgpt-plugin.md)을 참고하세요. 기존 로컬 stdio 방식도 사용할 수 있습니다. `--sse`의 Web UI와 원격 MCP `--http`는 별개입니다.
+
 공지사항, 과제, 강의자료를 Claude와 대화하면서 확인할 수 있는 MCP 서버입니다.
 
 > ⚠️ 학생이 만든 **비공식** 도구입니다. 중앙대학교와 무관하며, 사용에 따른 책임은 본인에게 있습니다.

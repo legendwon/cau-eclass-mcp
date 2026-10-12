@@ -1,0 +1,21 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "cau-eclass",
+  "version": "0.2.0",
+  "description": "중앙대 e-class 수강 과목, 과제, 공지와 강의자료를 조회하는 개인용 플러그인",
+  "author": {"name": "legendwon"},
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "displayName": "CAU e-class",
+        "shortDescription": "중앙대 과제·공지·강의자료 조회",
+        "longDescription": "수강 과목과 과제 제출 상태, 주차별 강의, 공지 본문, 강의자료를 조회합니다. 원격 연결에는 본인 계정 인증이 필요합니다.",
+        "developerName": "legendwon",
+        "category": "Productivity",
+        "logo": "./assets/icon.svg",
+        "composerIcon": "./assets/icon.svg",
+        "defaultPrompt": ["이번 주 해야 할 과제와 강의를 정리해줘", "수강 과목의 최신 공지를 확인해줘", "강의자료 목록을 보여줘"]
+      }
+    }
+  }
+}

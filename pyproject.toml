@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "cau-eclass-mcp"
-version = "0.1.0"
+version = "0.2.0"
 description = "MCP server for CAU e-class integration with Claude Code"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -15,7 +15,7 @@ authors = [
 keywords = ["mcp", "cau", "eclass", "claude", "model-context-protocol"]
 
 dependencies = [
-    "mcp>=1.0.0",
+    "mcp==1.30.0",
     "requests>=2.31.0",
     "httpx[http2]>=0.27.0",
     "beautifulsoup4>=4.12.0",
@@ -27,6 +27,7 @@ dependencies = [
     "sse-starlette>=1.8.0",
     "jinja2>=3.1.3",
     "python-multipart>=0.0.9",
+    "PyJWT[crypto]>=2.10.1,<3",
 ]
 
 [project.optional-dependencies]
@@ -46,6 +47,12 @@ cau-eclass-mcp = "cau_eclass_mcp.__main__:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+cau_eclass_mcp = ["static/*.html"]
+
+[tool.pytest.ini_options]
+markers = ["live: requires a real CAU account and network access", "slow: repeated live requests"]
 
 [tool.black]
 line-length = 100

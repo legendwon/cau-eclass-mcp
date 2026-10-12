@@ -1,5 +1,5 @@
 # CAU e-class MCP Server
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 from .auth import CauAuthenticator
 from .cau_on_client import CAUOnClient
